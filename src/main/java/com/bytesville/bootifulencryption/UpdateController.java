@@ -5,6 +5,7 @@ import java.util.List;
 import org.jooq.DSLContext;
 import org.jooq.Query;
 import org.jooq.example.db.h2.tables.pojos.Customer;
+import org.jooq.exception.DataAccessException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.vault.core.VaultOperations;
@@ -28,7 +29,7 @@ public class UpdateController {
 
     List<Customer> customers = dsl
         .selectFrom(CUSTOMER)
-        .where(CUSTOMER.CREDIT_CARD_NUMBER.like(version))
+        .where(CUSTOMER.CREDIT_CARD_NUMBER.startsWith(version))
         .fetchInto(Customer.class);
 
     VaultOperations vaultOperations = BeanUtil.getBean(VaultOperations.class);
@@ -41,11 +42,10 @@ public class UpdateController {
             .set(CUSTOMER.CREDIT_CARD_NUMBER, cipherText)
             .where(CUSTOMER.ID.eq(customer.getId())));
       }
-      dsl.batch(queries).execute();
+      int[] status = dsl.batch(queries).execute();
       return ResponseEntity.ok("updated");
-    } catch (Exception e){
-      e.printStackTrace();
-      return ResponseEntity.badRequest().body("Something went wrong");
+    } catch (DataAccessException e) {
+      return ResponseEntity.unprocessableEntity().body(e);
     }
   }
 }
